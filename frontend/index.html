@@ -19,18 +19,18 @@
 
     h1 {
       margin-bottom: 30px;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
       font-size: 2.5rem;
     }
 
     .controls {
-      background: rgba(255,255,255,0.1);
+      background: rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(10px);
       border-radius: 15px;
       padding: 20px;
       margin-bottom: 30px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-      border: 1px solid rgba(255,255,255,0.2);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
     }
 
     input[type="file"],
@@ -46,7 +46,7 @@
 
     input[type="text"] {
       width: 300px;
-      background: rgba(255,255,255,0.9);
+      background: rgba(255, 255, 255, 0.9);
       color: #333;
     }
 
@@ -66,7 +66,7 @@
 
     button:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
     }
 
     button:active {
@@ -77,7 +77,7 @@
       position: relative;
       border-radius: 15px;
       overflow: hidden;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
       background: #000;
     }
 
@@ -103,7 +103,7 @@
       border-radius: 20px;
       font-size: 14px;
       font-weight: bold;
-      background: rgba(0,0,0,0.7);
+      background: rgba(0, 0, 0, 0.7);
       color: white;
       backdrop-filter: blur(10px);
       transition: all 0.3s ease;
@@ -125,7 +125,7 @@
       width: 800px;
       max-width: 90%;
       height: 8px;
-      background: rgba(255,255,255,0.2);
+      background: rgba(255, 255, 255, 0.2);
       border-radius: 10px;
       margin: 20px 0;
       overflow: hidden;
@@ -150,11 +150,11 @@
       height: 12px;
       background: white;
       border-radius: 50%;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
 
     #timeDisplay {
-      color: rgba(255,255,255,0.8);
+      color: rgba(255, 255, 255, 0.8);
       font-size: 14px;
       margin-top: 10px;
     }
@@ -199,11 +199,11 @@
       input[type="text"] {
         width: 250px;
       }
-      
+
       h1 {
         font-size: 2rem;
       }
-      
+
       canvas {
         max-width: 95%;
       }
@@ -227,7 +227,7 @@
     <canvas id="canvas" width="1280" height="720"></canvas>
     <div id="statusIndicator">Ready</div>
   </div>
-  
+
   <div id="progressContainer">
     <div id="progressBar"></div>
   </div>
@@ -256,6 +256,14 @@
     video.hidden = true;
     video.controls = false;
     document.body.appendChild(video);
+    video.loop = false;
+    video.addEventListener('ended', () => {
+      isReady = false;
+      ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
+      progressBar.style.width = '0%';
+      showMessage('Video ended.', 'info');
+    });
+
 
     let lastClickTime = 0;
     let autoPauseDelay = 300;
@@ -268,7 +276,7 @@
       messageDiv.textContent = message;
       messageContainer.innerHTML = '';
       messageContainer.appendChild(messageDiv);
-      
+
       setTimeout(() => {
         messageDiv.remove();
       }, 5000);
@@ -295,7 +303,7 @@
 
     async function loadVideo() {
       if (isLoading) return;
-      
+
       const file = fileInput.files[0];
       const url = urlInput.value.trim();
 
@@ -319,7 +327,7 @@
       newVideo.preload = "auto";
       newVideo.hidden = true;
       newVideo.controls = false;
-      
+
       // Replace old video element
       video.remove();
       video = newVideo;
@@ -328,7 +336,7 @@
       try {
         if (file) {
           video.src = URL.createObjectURL(file);
-          
+
           const handleLoadedData = () => {
             isReady = true;
             isLoading = false;
@@ -337,14 +345,14 @@
             startDrawing(); // Start the animation loop
             showMessage('Video loaded successfully!', 'success');
           };
-          
+
           const handleError = () => {
             isLoading = false;
             document.body.classList.remove('loading');
             updateStatus('Error');
             showMessage('Failed to load video file.');
           };
-          
+
           video.addEventListener('loadeddata', handleLoadedData, { once: true });
           video.addEventListener('error', handleError, { once: true });
           video.load();
@@ -365,23 +373,34 @@
               startDrawing(); // Start the animation loop
               showMessage('Video loaded successfully!', 'success');
             };
-            
+
             const handleError = () => {
               isLoading = false;
               document.body.classList.remove('loading');
               updateStatus('Error');
               showMessage('Failed to load video. Please check the URL.');
             };
-            
+
             video.addEventListener('loadeddata', handleLoadedData, { once: true });
             video.addEventListener('error', handleError, { once: true });
-            video.src = `http://localhost:5000/api/link?url=${encodeURIComponent(url)}`;
+            const response = await fetch("http://localhost:5000/api/link/", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ url })
+            });
+
+            const data = await response.json();
+            if (data.url) {
+              video.src = "http://localhost:5000" + data.url;
+              video.load();
+            }
+
             video.load();
-            
+
           } else if (isYouTube) {
             // Handle YouTube URLs via backend
             console.log('Fetching YouTube video:', url);
-            
+
             const response = await fetch("http://localhost:5000/api/yt/", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -395,7 +414,7 @@
 
             const data = await response.json();
             console.log('Backend response:', data);
-            
+
             if (data.error) {
               throw new Error(data.error);
             }
@@ -403,7 +422,7 @@
             if (data.url) {
               const videoUrl = `http://localhost:5000${data.url}`;
               console.log('Setting video src to:', videoUrl);
-              
+
               const handleLoadedData = () => {
                 console.log('Video loadeddata event fired');
                 isReady = true;
@@ -413,7 +432,7 @@
                 startDrawing(); // Start the animation loop
                 showMessage('YouTube video loaded successfully!', 'success');
               };
-              
+
               const handleError = (e) => {
                 console.error('Video error event:', e);
                 isLoading = false;
@@ -421,20 +440,20 @@
                 updateStatus('Error');
                 showMessage('Failed to load video from server.');
               };
-              
+
               const handleLoadStart = () => {
                 console.log('Video load started');
               };
-              
+
               const handleCanPlay = () => {
                 console.log('Video can play');
               };
-              
+
               video.addEventListener('loadeddata', handleLoadedData, { once: true });
               video.addEventListener('error', handleError, { once: true });
               video.addEventListener('loadstart', handleLoadStart, { once: true });
               video.addEventListener('canplay', handleCanPlay, { once: true });
-              
+
               video.src = videoUrl;
               video.load();
 
@@ -456,6 +475,7 @@
 
     // Click to play
     canvas.addEventListener('click', () => {
+      if (!isReady || video.ended) return;
       if (!isReady) return;
       lastClickTime = Date.now();
       if (video.paused) {
@@ -467,7 +487,7 @@
     // Progress bar click to seek
     progressContainer.addEventListener('click', (e) => {
       if (!isReady || !video.duration) return;
-      
+
       const rect = progressContainer.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const percentage = clickX / rect.width;
@@ -476,15 +496,15 @@
     });
 
     let animationFrameId = null;
-    
+
     function adjustCanvasSize() {
       if (video.videoWidth && video.videoHeight) {
         const aspectRatio = video.videoWidth / video.videoHeight;
         const maxWidth = 1280;
         const maxHeight = 720;
-        
+
         let newWidth, newHeight;
-        
+
         if (aspectRatio > maxWidth / maxHeight) {
           // Video is wider
           newWidth = maxWidth;
@@ -494,47 +514,48 @@
           newHeight = maxHeight;
           newWidth = maxHeight * aspectRatio;
         }
-        
+
         canvas.width = newWidth;
         canvas.height = newHeight;
-        
+
         console.log(`Canvas resized to: ${newWidth}x${newHeight} (aspect: ${aspectRatio.toFixed(2)})`);
       }
     }
-    
+
     function drawFrame() {
+      if (!isReady || video.ended) return;
       if (isReady && video.videoWidth > 0 && video.videoHeight > 0) {
         // Adjust canvas size to match video aspect ratio (only once)
         if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
           adjustCanvasSize();
         }
-        
+
         // Clear canvas first
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
+
         try {
           // Enable high-quality rendering
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
-          
+
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         } catch (e) {
           console.warn('Error drawing video frame:', e);
         }
-        
+
         if (video.duration && isFinite(video.duration)) {
           const progress = (video.currentTime / video.duration) * 100;
           progressBar.style.width = `${Math.max(0, Math.min(100, progress))}%`;
           updateTimeDisplay();
         }
       }
-      
+
       // Only continue animation if video is ready and not ended
       if (isReady && !video.ended) {
         animationFrameId = requestAnimationFrame(drawFrame);
       }
     }
-    
+
     function startDrawing() {
       if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
@@ -586,8 +607,8 @@
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
       if (!isReady) return;
-      
-      switch(e.code) {
+
+      switch (e.code) {
         case 'Space':
           e.preventDefault();
           if (video.paused) {

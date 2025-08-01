@@ -1,4 +1,4 @@
-from flask import Blueprint, request, Response, jsonify, stream_with_context
+from flask import Blueprint, request, Response, jsonify
 import requests
 
 link_bp = Blueprint('link', __name__)
@@ -16,7 +16,10 @@ def use_direct_link():
         if not content_type.startswith('video'):
             return jsonify({'error': 'URL does not point to a video'}), 400
 
-        estimated_fps = 25  # Optional placeholder
+        # FPS estimation placeholder
+        estimated_fps = 25
+
+        # Respond with your server's proxy endpoint instead of direct URL
         proxy_url = f'/api/link/stream?src={url}'
 
         return jsonify({
@@ -31,33 +34,13 @@ def use_direct_link():
 @link_bp.route('/stream')
 def proxy_video():
     url = request.args.get('src')
-    if not url or not url.startswith('http'):
-        return 'Missing or invalid src', 400
+    if not url:
+        return 'Missing src', 400
 
-    try:
-        headers = {}
-        if 'Range' in request.headers:
-            headers['Range'] = request.headers['Range']
-        if 'User-Agent' in request.headers:
-            headers['User-Agent'] = request.headers['User-Agent']
-
-        upstream = requests.get(url, stream=True, headers=headers, timeout=10)
-
-        def generate():
-            for chunk in upstream.iter_content(chunk_size=8192):
+    def generate():
+        with requests.get(url, stream=True) as r:
+            r.raise_for_status()
+            for chunk in r.iter_content(chunk_size=8192):
                 yield chunk
 
-        excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
-        response_headers = {
-            key: value for key, value in upstream.headers.items()
-            if key.lower() not in excluded_headers
-        }
-
-        return Response(
-            stream_with_context(generate()),
-            status=upstream.status_code,
-            headers=response_headers,
-            content_type=upstream.headers.get('Content-Type', 'video/mp4')
-        )
-    except Exception as e:
-        return f"Error proxying video: {e}", 500
+    return Response(generate(), content_type='video/mp4')
