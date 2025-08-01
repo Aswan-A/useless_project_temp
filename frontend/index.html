@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>🖱️ Click-Controlled Video Player</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+    }
+
+    .controls {
+      margin-bottom: 20px;
+    }
+
+    input[type="file"],
+    input[type="text"],
+    button {
+      margin: 5px;
+      padding: 10px;
+      font-size: 16px;
+    }
+
+    canvas {
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      cursor: pointer;
+      max-width: 100%;
+      background: black;
+    }
+
+    #fullscreenBtn {
+      margin-top: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      background-color: #4caf50;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    #fullscreenBtn:hover {
+      background-color: #388e3c;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>🖱️ Click-Controlled Video Player</h1>
+
+  <div class="controls">
+    <input type="file" id="videoFile" accept="video/*">
+    <input type="text" id="videoUrl" placeholder="Paste direct video URL">
+    <button onclick="loadVideo()">Load Video</button>
+  </div>
+
+  <canvas id="canvas" width="640" height="360"></canvas>
+  <button id="fullscreenBtn">Enter Fullscreen</button>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const fileInput = document.getElementById('videoFile');
+    const urlInput = document.getElementById('videoUrl');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+    let video = document.createElement('video');
+    video.crossOrigin = "anonymous";
+    video.muted = false; // Enable audio
+    video.playsInline = true;
+    video.preload = "auto";
+    video.hidden = true;
+    video.controls = false; // Disable default controls
+    document.body.appendChild(video);
+
+    let frameStep = 0.1; // seconds advanced per click
+    let lastClickTime = 0;
+    let autoPauseDelay = 300; // ms
+    let isReady = false;
+
+    async function loadVideo() {
+      const file = fileInput.files[0];
+      const url = urlInput.value.trim();
+
+      video.pause();
+      video.currentTime = 0;
+      isReady = false;
+
+      if (file) {
+        video.src = URL.createObjectURL(file);
+        video.load();
+        video.addEventListener('loadeddata', () => {
+          isReady = true;
+          drawFrame();
+        }, { once: true });
+        return;
+      }
+
+      if (url) {
+        const isYouTube = url.includes("youtube.com") || url.includes("youtu.be");
+        const isHttp = url.startsWith("http");
+
+        try {
+          const endpoint = isYouTube
+            ? "http://localhost:5000/api/yt/"
+            : isHttp
+              ? "http://localhost:5000/api/link/"
+              : null;
+
+          if (!endpoint) {
+            alert("Invalid URL format.");
+            return;
+          }
+
+          const response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              url: url,
+              start: "00:00:00",
+              duration: 30
+            })
+          });
+
+          const data = await response.json();
+
+          if (data.url) {
+            video.src = "http://localhost:5000" + data.url;
+            video.load();
+            video.addEventListener('loadeddata', () => {
+              isReady = true;
+              drawFrame();
+            }, { once: true });
+          } else {
+            alert("Failed to load video from server.");
+          }
+        } catch (err) {
+          console.error("Error loading video from backend:", err);
+          alert("Error contacting backend.");
+        }
+      } else {
+        alert("Please select a file or enter a URL.");
+      }
+    }
+
+
+    canvas.addEventListener('click', () => {
+      if (!isReady) return;
+      lastClickTime = Date.now();
+
+      if (video.paused) {
+        video.play();
+      }
+    });
+
+    function drawFrame() {
+      requestAnimationFrame(drawFrame);
+      if (isReady) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      }
+    }
+
+    setInterval(() => {
+      if (!isReady) return;
+      const now = Date.now();
+      if (now - lastClickTime > autoPauseDelay) {
+        video.pause();
+      }
+    }, 100);
+
+    fullscreenBtn.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        canvas.requestFullscreen().then(() => {
+          fullscreenBtn.textContent = 'Exit Fullscreen';
+        });
+      } else {
+        document.exitFullscreen().then(() => {
+          fullscreenBtn.textContent = 'Enter Fullscreen';
+        });
+      }
+    });
+  </script>
+</body>
+
+</html>

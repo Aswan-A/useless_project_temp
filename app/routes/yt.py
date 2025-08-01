@@ -22,27 +22,25 @@ def extract_video_id(url):
     return None
 
 def format_time(seconds):
-    return str(timedelta(seconds=int(seconds)))  # Convert seconds to HH:MM:SS
+    return str(timedelta(seconds=int(seconds)))
 
 @yt_bp.route('/', methods=['POST'])
 def fetch_youtube_clip():
     data = request.get_json()
     url = data.get('url', '')
-    start = data.get('start', '00:00:00')  # Format: HH:MM:SS
-    duration = int(data.get('duration', 30))  # Duration in seconds
+    start = data.get('start', '00:00:00')
+    duration = int(data.get('duration', 30))
 
     video_id = extract_video_id(url)
     if not video_id:
         return jsonify({'error': 'Invalid YouTube URL'}), 400
 
     try:
-        # File paths
         base_filename = f'{video_id}_{uuid.uuid4()}'
         full_path = os.path.join(TEMP_FOLDER, base_filename + '_full.mp4')
         trimmed_path = os.path.join(TEMP_FOLDER, base_filename + '_clip.mp4')
-        trimmed_audio_path = os.path.join(TEMP_FOLDER, base_filename + '_audio.wav')
 
-        # Download full video with audio
+        # Download video with audio
         subprocess.run([
             'yt-dlp',
             '-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]',
@@ -53,7 +51,7 @@ def fetch_youtube_clip():
             url
         ], check=True)
 
-        # Trim clip with ffmpeg
+        # Trim with audio
         subprocess.run([
             'ffmpeg',
             '-i', full_path,
@@ -64,18 +62,6 @@ def fetch_youtube_clip():
             '-avoid_negative_ts', 'make_zero',
             '-y',
             trimmed_path
-        ], check=True)
-
-        # Extract audio from trimmed video
-        subprocess.run([
-            'ffmpeg',
-            '-i', trimmed_path,
-            '-vn',
-            '-acodec', 'pcm_s16le',
-            '-ar', '44100',
-            '-ac', '2',
-            '-y',
-            trimmed_audio_path
         ], check=True)
 
         # Get FPS
@@ -94,7 +80,7 @@ def fetch_youtube_clip():
         else:
             fps = float(fps_str)
 
-        # Get clip duration
+        # Get duration
         dur_result = subprocess.run([
             'ffprobe', '-v', 'error',
             '-show_entries', 'format=duration',
@@ -105,13 +91,12 @@ def fetch_youtube_clip():
 
         return jsonify({
             'url': f'/api/yt/stream?src={trimmed_path}',
-            'audio': f'/api/yt/stream?src={trimmed_audio_path}',
             'fps': fps,
             'duration': clip_duration
         })
 
     except subprocess.CalledProcessError as e:
-        return jsonify({'error': f'Download or processing failed: {str(e)}'}), 500
+        return jsonify({'error': f'Processing failed: {str(e)}'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
