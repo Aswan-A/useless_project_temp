@@ -213,13 +213,27 @@
 
 <body>
 
-  <h1>🖱️ Click-Controlled Video Player</h1>
+  <h1>Click Video Player</h1>
 
   <div class="controls">
-    <input type="file" id="videoFile" accept="video/*">
-    <input type="text" id="videoUrl" placeholder="Paste YouTube URL or direct video URL">
-    <button onclick="loadVideo()">Load Video</button>
+    <div>
+      <label><input type="radio" name="mode" value="upload" checked> Upload File</label>
+      <label style="margin-left: 20px;"><input type="radio" name="mode" value="link"> Use URL</label>
+    </div>
+
+    <div id="fileInputContainer" style="margin-top: 10px;">
+      <input type="file" id="videoFile" accept="video/*" onchange="handleFileSelected()">
+      <button id="removeFileBtn" onclick="removeSelectedFile()"
+        style="display:none; background:#ff5252; color:white;">Remove File</button>
+    </div>
+
+    <div id="urlInputContainer" style="display:none; margin-top: 10px;">
+      <input type="text" id="videoUrl" placeholder="Paste YouTube URL or direct video URL">
+    </div>
+
+    <button onclick="loadVideo()" style="margin-top: 10px;">Load Video</button>
   </div>
+
 
   <div id="messageContainer"></div>
 
@@ -300,6 +314,48 @@
         timeDisplay.textContent = `${current} / ${total}`;
       }
     }
+
+    // Handle radio button change
+    document.querySelectorAll('input[name="mode"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        const mode = document.querySelector('input[name="mode"]:checked').value;
+        document.getElementById('fileInputContainer').style.display = mode === 'upload' ? 'block' : 'none';
+        document.getElementById('urlInputContainer').style.display = mode === 'link' ? 'block' : 'none';
+      });
+    });
+
+    // Show remove button if file selected
+    function handleFileSelected() {
+      const fileInput = document.getElementById('videoFile');
+      const removeBtn = document.getElementById('removeFileBtn');
+      if (fileInput.files.length > 0) {
+        removeBtn.style.display = 'inline-block';
+      } else {
+        removeBtn.style.display = 'none';
+      }
+    }
+
+    // Remove selected file and reset video
+    function removeSelectedFile() {
+      const fileInput = document.getElementById('videoFile');
+      const removeBtn = document.getElementById('removeFileBtn');
+      fileInput.value = ''; // Clear file
+      removeBtn.style.display = 'none';
+
+      // Reset video
+      if (!video.paused) video.pause();
+      video.removeAttribute('src');
+      video.load();
+      isReady = false;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      progressBar.style.width = '0%';
+      timeDisplay.textContent = '00:00 / 00:00';
+      updateStatus('Ready');
+      showMessage("File removed.", "info");
+    }
+
+
+
 
     async function loadVideo() {
       if (isLoading) return;
