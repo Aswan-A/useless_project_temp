@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>🖱️ Click-Controlled Video Player</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      min-height: 100vh;
+      margin: 0;
+    }
+
+    h1 {
+      margin-bottom: 30px;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+      font-size: 2.5rem;
+    }
+
+    .controls {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 20px;
+      margin-bottom: 30px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    input[type="file"],
+    input[type="text"],
+    button {
+      margin: 8px;
+      padding: 12px 16px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      transition: all 0.3s ease;
+    }
+
+    input[type="text"] {
+      width: 300px;
+      background: rgba(255, 255, 255, 0.9);
+      color: #333;
+    }
+
+    input[type="text"]:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.5);
+    }
+
+    button {
+      background: linear-gradient(45deg, #667eea, #764ba2);
+      color: white;
+      cursor: pointer;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .video-container {
+      position: relative;
+      border-radius: 15px;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      background: #000;
+    }
+
+    canvas {
+      cursor: pointer;
+      max-width: 100%;
+      max-height: 70vh;
+      display: block;
+      transition: transform 0.2s ease;
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: crisp-edges;
+    }
+
+    canvas:hover {
+      transform: scale(1.02);
+    }
+
+    #statusIndicator {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: bold;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+    }
+
+    #statusIndicator.playing {
+      background: rgba(76, 175, 80, 0.8);
+    }
+
+    #statusIndicator.paused {
+      background: rgba(244, 67, 54, 0.8);
+    }
+
+    #statusIndicator.loading {
+      background: rgba(255, 193, 7, 0.8);
+    }
+
+    #progressContainer {
+      width: 800px;
+      max-width: 90%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+      margin: 20px 0;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    #progressBar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      border-radius: 10px;
+      transition: width 0.1s ease-out;
+      position: relative;
+    }
+
+    #progressBar::after {
+      content: '';
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      width: 12px;
+      height: 12px;
+      background: white;
+      border-radius: 50%;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    #timeDisplay {
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 14px;
+      margin-top: 10px;
+    }
+
+    #fullscreenBtn {
+      margin-top: 20px;
+      padding: 15px 30px;
+      font-size: 16px;
+      background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+    }
+
+    #fullscreenBtn:hover {
+      background: linear-gradient(45deg, #ee5a24, #ff6b6b);
+    }
+
+    .loading {
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    .error-message {
+      background: rgba(244, 67, 54, 0.9);
+      color: white;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 10px 0;
+      max-width: 500px;
+      text-align: center;
+    }
+
+    .success-message {
+      background: rgba(76, 175, 80, 0.9);
+      color: white;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 10px 0;
+      max-width: 500px;
+      text-align: center;
+    }
+
+    @media (max-width: 768px) {
+      input[type="text"] {
+        width: 250px;
+      }
+
+      h1 {
+        font-size: 2rem;
+      }
+
+      canvas {
+        max-width: 95%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>Click n Play</h1>
+
+  <div class="controls">
+    <div>
+      <label><input type="radio" name="mode" value="upload" checked> Upload File</label>
+      <label style="margin-left: 20px;"><input type="radio" name="mode" value="link"> Use URL</label>
+    </div>
+
+    <div id="fileInputContainer" style="margin-top: 10px;">
+      <input type="file" id="videoFile" accept="video/*" onchange="handleFileSelected()">
+      <button id="removeFileBtn" onclick="removeSelectedFile()"
+        style="display:none; background:#ff5252; color:white;">Remove File</button>
+    </div>
+
+    <div id="urlInputContainer" style="display:none; margin-top: 10px;">
+      <input type="text" id="videoUrl" placeholder="Paste YouTube URL or direct video URL">
+    </div>
+
+    <button onclick="loadVideo()" style="margin-top: 10px;">Load Video</button>
+  </div>
+
+
+  <div id="messageContainer"></div>
+
+  <div class="video-container">
+    <canvas id="canvas" width="1280" height="720"></canvas>
+    <div id="statusIndicator">Ready</div>
+  </div>
+
+  <div id="progressContainer">
+    <div id="progressBar"></div>
+  </div>
+
+  <div id="timeDisplay">00:00 / 00:00</div>
+
+  <button id="fullscreenBtn">Enter Fullscreen</button>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const fileInput = document.getElementById('videoFile');
+    const urlInput = document.getElementById('videoUrl');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const progressBar = document.getElementById('progressBar');
+    const progressContainer = document.getElementById('progressContainer');
+    const statusIndicator = document.getElementById('statusIndicator');
+    const timeDisplay = document.getElementById('timeDisplay');
+    const messageContainer = document.getElementById('messageContainer');
+
+    let video = document.createElement('video');
+    video.crossOrigin = "anonymous";
+    video.muted = false;
+    video.playsInline = true;
+    video.preload = "auto";
+    video.hidden = true;
+    video.controls = false;
+    document.body.appendChild(video);
+    video.loop = false;
+    video.addEventListener('ended', () => {
+      isReady = false;
+      ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
+      progressBar.style.width = '0%';
+      showMessage('Video ended.', 'info');
+    });
+
+
+    let lastClickTime = 0;
+    let autoPauseDelay = 300;
+    let isReady = false;
+    let isLoading = false;
+
+    function showMessage(message, type = 'error') {
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `${type}-message`;
+      messageDiv.textContent = message;
+      messageContainer.innerHTML = '';
+      messageContainer.appendChild(messageDiv);
+
+      setTimeout(() => {
+        messageDiv.remove();
+      }, 5000);
+    }
+
+    function updateStatus(status) {
+      statusIndicator.textContent = status;
+      statusIndicator.className = status.toLowerCase();
+    }
+
+    function formatTime(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    function updateTimeDisplay() {
+      if (video.duration) {
+        const current = formatTime(video.currentTime);
+        const total = formatTime(video.duration);
+        timeDisplay.textContent = `${current} / ${total}`;
+      }
+    }
+
+    // Handle radio button change
+    document.querySelectorAll('input[name="mode"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        const mode = document.querySelector('input[name="mode"]:checked').value;
+        document.getElementById('fileInputContainer').style.display = mode === 'upload' ? 'block' : 'none';
+        document.getElementById('urlInputContainer').style.display = mode === 'link' ? 'block' : 'none';
+      });
+    });
+
+    // Show remove button if file selected
+    function handleFileSelected() {
+      const fileInput = document.getElementById('videoFile');
+      const removeBtn = document.getElementById('removeFileBtn');
+      if (fileInput.files.length > 0) {
+        removeBtn.style.display = 'inline-block';
+      } else {
+        removeBtn.style.display = 'none';
+      }
+    }
+
+    // Remove selected file and reset video
+    function removeSelectedFile() {
+      const fileInput = document.getElementById('videoFile');
+      const removeBtn = document.getElementById('removeFileBtn');
+      fileInput.value = ''; // Clear file
+      removeBtn.style.display = 'none';
+
+      // Reset video
+      if (!video.paused) video.pause();
+      video.removeAttribute('src');
+      video.load();
+      isReady = false;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      progressBar.style.width = '0%';
+      timeDisplay.textContent = '00:00 / 00:00';
+      updateStatus('Ready');
+      showMessage("File removed.", "info");
+    }
+
+
+
+
+    async function loadVideo() {
+      if (isLoading) return;
+
+      const file = fileInput.files[0];
+      const url = urlInput.value.trim();
+
+      if (!file && !url) {
+        showMessage("Please choose a file or paste a URL.");
+        return;
+      }
+
+      isLoading = true;
+      video.pause();
+      video.currentTime = 0;
+      isReady = false;
+      updateStatus('Loading');
+      document.body.classList.add('loading');
+
+      // Clear any existing event listeners to prevent conflicts
+      const newVideo = document.createElement('video');
+      newVideo.crossOrigin = "anonymous";
+      newVideo.muted = false;
+      newVideo.playsInline = true;
+      newVideo.preload = "auto";
+      newVideo.hidden = true;
+      newVideo.controls = false;
+
+      // Replace old video element
+      video.remove();
+      video = newVideo;
+      document.body.appendChild(video);
+
+      try {
+        if (file) {
+          video.src = URL.createObjectURL(file);
+
+          const handleLoadedData = () => {
+            isReady = true;
+            isLoading = false;
+            document.body.classList.remove('loading');
+            updateStatus('Ready');
+            startDrawing(); // Start the animation loop
+            showMessage('Video loaded successfully!', 'success');
+          };
+
+          const handleError = () => {
+            isLoading = false;
+            document.body.classList.remove('loading');
+            updateStatus('Error');
+            showMessage('Failed to load video file.');
+          };
+
+          video.addEventListener('loadeddata', handleLoadedData, { once: true });
+          video.addEventListener('error', handleError, { once: true });
+          video.load();
+          return;
+        }
+
+        if (url) {
+          const isYouTube = url.includes("youtube.com") || url.includes("youtu.be");
+          const isDirect = url.match(/\.(mp4|webm|ogg|mov|avi)(\?|$)/i);
+
+          if (isDirect) {
+            // Handle direct video URLs
+            const handleLoadedData = () => {
+              isReady = true;
+              isLoading = false;
+              document.body.classList.remove('loading');
+              updateStatus('Ready');
+              startDrawing(); // Start the animation loop
+              showMessage('Video loaded successfully!', 'success');
+            };
+
+            const handleError = () => {
+              isLoading = false;
+              document.body.classList.remove('loading');
+              updateStatus('Error');
+              showMessage('Failed to load video. Please check the URL.');
+            };
+
+            video.addEventListener('loadeddata', handleLoadedData, { once: true });
+            video.addEventListener('error', handleError, { once: true });
+            const response = await fetch("http://localhost:5000/api/link/", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ url })
+            });
+
+            const data = await response.json();
+            if (data.url) {
+              video.src = "http://localhost:5000" + data.url;
+              video.load();
+            }
+
+            video.load();
+
+          } else if (isYouTube) {
+            // Handle YouTube URLs via backend
+            console.log('Fetching YouTube video:', url);
+
+            const response = await fetch("http://localhost:5000/api/yt/", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ url })
+            });
+
+            if (!response.ok) {
+              const errorText = await response.text();
+              throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+
+            const data = await response.json();
+            console.log('Backend response:', data);
+
+            if (data.error) {
+              throw new Error(data.error);
+            }
+
+            if (data.url) {
+              const videoUrl = `http://localhost:5000${data.url}`;
+              console.log('Setting video src to:', videoUrl);
+
+              const handleLoadedData = () => {
+                console.log('Video loadeddata event fired');
+                isReady = true;
+                isLoading = false;
+                document.body.classList.remove('loading');
+                updateStatus('Ready');
+                startDrawing(); // Start the animation loop
+                showMessage('YouTube video loaded successfully!', 'success');
+              };
+
+              const handleError = (e) => {
+                console.error('Video error event:', e);
+                isLoading = false;
+                document.body.classList.remove('loading');
+                updateStatus('Error');
+                showMessage('Failed to load video from server.');
+              };
+
+              const handleLoadStart = () => {
+                console.log('Video load started');
+              };
+
+              const handleCanPlay = () => {
+                console.log('Video can play');
+              };
+
+              video.addEventListener('loadeddata', handleLoadedData, { once: true });
+              video.addEventListener('error', handleError, { once: true });
+              video.addEventListener('loadstart', handleLoadStart, { once: true });
+              video.addEventListener('canplay', handleCanPlay, { once: true });
+
+              video.src = videoUrl;
+              video.load();
+
+            } else {
+              throw new Error("Failed to get video URL from server");
+            }
+          } else {
+            throw new Error("Unsupported URL format. Please use YouTube URLs or direct video links.");
+          }
+        }
+      } catch (err) {
+        console.error("Error loading video:", err);
+        isLoading = false;
+        document.body.classList.remove('loading');
+        updateStatus('Error');
+        showMessage(`Error: ${err.message}`);
+      }
+    }
+
+    // Click to play
+    canvas.addEventListener('click', () => {
+      if (!isReady || video.ended) return;
+      if (!isReady) return;
+      lastClickTime = Date.now();
+      if (video.paused) {
+        video.play();
+        updateStatus('Playing');
+      }
+    });
+
+    // Progress bar click to seek
+    progressContainer.addEventListener('click', (e) => {
+      if (!isReady || !video.duration) return;
+
+      const rect = progressContainer.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const percentage = clickX / rect.width;
+      video.currentTime = percentage * video.duration;
+      lastClickTime = Date.now(); // Reset auto-pause timer
+    });
+
+    let animationFrameId = null;
+
+    function adjustCanvasSize() {
+      if (video.videoWidth && video.videoHeight) {
+        const aspectRatio = video.videoWidth / video.videoHeight;
+        const maxWidth = 1280;
+        const maxHeight = 720;
+
+        let newWidth, newHeight;
+
+        if (aspectRatio > maxWidth / maxHeight) {
+          // Video is wider
+          newWidth = maxWidth;
+          newHeight = maxWidth / aspectRatio;
+        } else {
+          // Video is taller
+          newHeight = maxHeight;
+          newWidth = maxHeight * aspectRatio;
+        }
+
+        canvas.width = newWidth;
+        canvas.height = newHeight;
+
+        console.log(`Canvas resized to: ${newWidth}x${newHeight} (aspect: ${aspectRatio.toFixed(2)})`);
+      }
+    }
+
+    function drawFrame() {
+      if (!isReady || video.ended) return;
+      if (isReady && video.videoWidth > 0 && video.videoHeight > 0) {
+        // Adjust canvas size to match video aspect ratio (only once)
+        if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+          adjustCanvasSize();
+        }
+
+        // Clear canvas first
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        try {
+          // Enable high-quality rendering
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        } catch (e) {
+          console.warn('Error drawing video frame:', e);
+        }
+
+        if (video.duration && isFinite(video.duration)) {
+          const progress = (video.currentTime / video.duration) * 100;
+          progressBar.style.width = `${Math.max(0, Math.min(100, progress))}%`;
+          updateTimeDisplay();
+        }
+      }
+
+      // Only continue animation if video is ready and not ended
+      if (isReady && !video.ended) {
+        animationFrameId = requestAnimationFrame(drawFrame);
+      }
+    }
+
+    function startDrawing() {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+      drawFrame();
+    }
+
+    // Auto-pause mechanism
+    setInterval(() => {
+      if (!isReady) return;
+      const now = Date.now();
+      if (now - lastClickTime > autoPauseDelay && !video.paused) {
+        video.pause();
+        updateStatus('Paused');
+      }
+    }, 100);
+
+    // Fullscreen functionality
+    fullscreenBtn.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        canvas.requestFullscreen().then(() => {
+          fullscreenBtn.textContent = 'Exit Fullscreen';
+        }).catch(() => {
+          showMessage('Fullscreen not supported or blocked');
+        });
+      } else {
+        document.exitFullscreen().then(() => {
+          fullscreenBtn.textContent = 'Enter Fullscreen';
+        });
+      }
+    });
+
+    // Handle fullscreen change
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement) {
+        fullscreenBtn.textContent = 'Enter Fullscreen';
+      }
+    });
+
+    // Video event listeners
+    video.addEventListener('play', () => updateStatus('Playing'));
+    video.addEventListener('pause', () => updateStatus('Paused'));
+    video.addEventListener('ended', () => updateStatus('Ended'));
+    video.addEventListener('error', () => {
+      updateStatus('Error');
+      showMessage('Video playback error occurred');
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (!isReady) return;
+
+      switch (e.code) {
+        case 'Space':
+          e.preventDefault();
+          if (video.paused) {
+            video.play();
+            lastClickTime = Date.now();
+          } else {
+            video.pause();
+          }
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          video.currentTime = Math.max(0, video.currentTime - 10);
+          lastClickTime = Date.now();
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          video.currentTime = Math.min(video.duration, video.currentTime + 10);
+          lastClickTime = Date.now();
+          break;
+        case 'KeyF':
+          e.preventDefault();
+          fullscreenBtn.click();
+          break;
+      }
+    });
+
+    // Initialize - don't start drawing loop until video is loaded
+    console.log('Video player initialized');
+  </script>
+
+</body>
+
+</html>
